@@ -1,0 +1,149 @@
+using System;
+using System.Collections.Generic;
+
+namespace RobotBatteryApp
+{
+    public interface IBattery
+    {
+        int RemainingEnergy { get; }
+        void Consume(int amount);
+        void Recharge(int amount);
+    }
+
+    public class LithiumBattery : IBattery
+    {
+        private const int MaxEnergy = 100;
+        private int _remainingEnergy;
+
+        public LithiumBattery(int startingEnergy = MaxEnergy)
+        {
+            _remainingEnergy = Math.Clamp(startingEnergy, 0, MaxEnergy);
+        }
+        public int RemainingEnergy => _remainingEnergy;
+
+        public void Consume(int amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount cannot be negative.");
+            _remainingEnergy = Math.Max(0, _remainingEnergy - amount);
+        }
+
+        public void Recharge(int amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount cannot be negative.");
+            _remainingEnergy = Math.Min(MaxEnergy, _remainingEnergy + amount);
+        }
+    }
+
+    public class SolarBattery : IBattery
+    {
+        private const int MaxEnergy = 100;
+        private int _remainingEnergy;
+
+        public SolarBattery(int startingEnergy = MaxEnergy)
+        {
+            _remainingEnergy = Math.Clamp(startingEnergy, 0, MaxEnergy);
+        }
+
+        public int RemainingEnergy => _remainingEnergy;
+
+        public void Consume(int amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount cannot be negative.");
+            _remainingEnergy = Math.Max(0, _remainingEnergy - amount);
+        }
+
+        public void Recharge(int amount)
+        {
+            if (amount < 0) throw new ArgumentOutOfRangeException(nameof(amount), "Amount cannot be negative.");
+            _remainingEnergy = Math.Min(MaxEnergy, _remainingEnergy + amount);
+        }
+    }
+
+    public abstract class Robot
+    {
+        private readonly IBattery _battery;
+        public string Name { get; }
+        public int RemainingEnergy => _battery.RemainingEnergy;
+        protected Robot(string name, IBattery battery)
+        {
+            Name = name;
+            _battery = battery ?? throw new ArgumentNullException(nameof(battery));
+        }
+
+        public void Recharge(int amount)
+        {
+            _battery.Recharge(amount);
+            Console.WriteLine($"{Name} recharged by {amount}. Energy: {RemainingEnergy}");
+        }
+
+        protected void UseEnergy(int amount)
+        {
+            _battery.Consume(amount);
+        }
+
+        public abstract void PerformTask();
+    }
+
+    public class CleaningRobot : Robot
+    {
+        private const int Cost = 10;
+
+        public CleaningRobot(string name, IBattery battery) : base(name, battery) { }
+        public override void PerformTask()
+        {
+            if (RemainingEnergy < Cost)
+            {
+                Console.WriteLine($"{Name} doesn't have enough energy to clean. Energy: {RemainingEnergy}");
+                return;
+            }
+            UseEnergy(Cost);
+            Console.WriteLine($"{Name} is cleaning the floor. Energy: {RemainingEnergy}");
+        }
+    }
+
+    public class DeliveryRobot : Robot
+    {
+        private const int Cost = 25;
+
+        public DeliveryRobot(string name, IBattery battery) : base(name, battery) { }
+
+        public override void PerformTask()
+        {
+            if (RemainingEnergy < Cost)
+            {
+                Console.WriteLine($"{Name} doesn't have enough energy to deliver. Energy: {RemainingEnergy}");
+                return;
+            }
+            UseEnergy(Cost);
+            Console.WriteLine($"{Name} is delivering a package. Energy: {RemainingEnergy}");
+        }
+    }
+
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            var cleaner = new CleaningRobot("CleanBot", new LithiumBattery(50));
+            var courier = new DeliveryRobot("DeliverBot", new SolarBattery(60));
+
+            Console.WriteLine("--- Individual calls ---");
+            cleaner.PerformTask();
+            courier.PerformTask();
+            cleaner.Recharge(30);
+            courier.Recharge(20);
+
+            Console.WriteLine();
+            Console.WriteLine("--- Polymorphism via List<Robot> ---");
+            List<Robot> robots = new List<Robot> { cleaner, courier };
+
+            foreach (Robot robot in robots)
+            {
+                robot.PerformTask(); // runs each robot's own override
+            }
+            Console.WriteLine();
+            Console.WriteLine("--- Energy limits (0 to 100) ---");
+            cleaner.Recharge(500);   // clamps at 100
+            for (int i = 0; i < 12; i++) cleaner.PerformTask(); // stops at low energy, never below 0
+        }
+    }
+}
